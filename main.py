@@ -1,5 +1,123 @@
 from ursina import *
 import json
+from ursina import *
+import json
+
+class PuzzleItem(Entity):
+    def __init__(self, item_data, player=None):
+        super().__init__()
+
+        self.type = item_data.get('Type', 'Unknown')
+        pos = item_data.get('Pos', '0 0 0')
+        pos = [float(x) for x in pos.split()]
+        self.position = Vec3(pos[0]/64, pos[2]/64, pos[1]/64)
+
+        # Simple angle parsing
+        angles = item_data.get('Angles', '0 0 0')
+        angles = [float(x) for x in angles.split()]
+        self.rotation = Vec3(angles[0], angles[1], angles[2])
+
+        # Use lowercase type name for model/texture names
+        self.model_name = f'{self.type.lower()}.obj'
+        self.texture_name = f'{self.type.lower()}.png'
+
+        self.model = self.model_name
+        self.texture = self.texture_name
+
+        self.collider = 'box'
+
+        self.player = player  # For things that affect the player
+class Button(PuzzleItem):
+    def input(self, key):
+        if self.hovered and key == 'left mouse down':
+            print('Button pressed!')
+            # Add logic here to open doors, etc.
+
+class Cube(PuzzleItem):
+    pass  # For now, just static. Later add carry logic.
+
+class CubeDropper(PuzzleItem):
+    def input(self, key):
+        if self.hovered and key == 'left mouse down':
+            print('Dropping a cube!')
+            new_cube = Cube({
+                'Type': 'Cube',
+                'Pos': f'{self.x*64} {self.z*64} {self.y*64 + 64}',
+                'Angles': '0 0 0'
+            })
+
+class ObservationWindow(PuzzleItem):
+    pass  # Just static geometry
+
+class EntryDoor(PuzzleItem):
+    def open(self):
+        print('Entry Door opened!')
+        # Swap to open version if you have one
+
+class ExitDoor(PuzzleItem):
+    def open(self):
+        print('Exit Door opened!')
+
+class Door(PuzzleItem):
+    def toggle(self):
+        print('Door toggled!')
+
+class AerialFaithPlate(PuzzleItem):
+    def update(self):
+        if self.intersects().hit and self.intersects().entity == self.player:
+            print('Launch!')
+            self.player.controller.velocity += Vec3(0, 20, 0)  # Yeet upward
+
+class NonPortableSurface(PuzzleItem):
+    pass
+
+class PortableSurface(PuzzleItem):
+    pass
+class Player(Entity):
+    def __init__(self):
+        super().__init__()
+        self.controller = FirstPersonController()
+        self.controller.gravity = 0.5  # Adjust as needed
+
+    def update(self):
+        hit_info = self.controller.intersects()
+        if hit_info.hit:
+            pass  # Add portal checks later
+app = Ursina()
+
+# Load level.json
+with open('level.json') as f:
+    items = json.load(f)
+
+player = Player()
+
+for item in items:
+    t = item.get('Type')
+    if t == 'ItemButton':
+        Button(item)
+    elif t == 'ItemCube':
+        Cube(item)
+    elif t == 'ItemCubeDropper':
+        CubeDropper(item)
+    elif t == 'ItemObservationRoom':
+        ObservationWindow(item)
+    elif t == 'ItemEntryDoor':
+        EntryDoor(item)
+    elif t == 'ItemExitDoor':
+        ExitDoor(item)
+    elif t == 'ItemPanel':
+        Door(item)
+    elif t == 'ItemFaithPlate':
+        AerialFaithPlate(item, player=player.controller)
+    elif t == 'ItemNonPortableSurface':
+        NonPortableSurface(item)
+    elif t == 'ItemPortableSurface':
+        PortableSurface(item)
+    else:
+        print(f'Unknown item type: {t}')
+
+Sky()
+app.run()
 
 class PuzzleItem(Entity):
     def __init__(self, item_data, player=None):
